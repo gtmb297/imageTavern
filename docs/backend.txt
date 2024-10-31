@@ -1,0 +1,192 @@
+# Icon Generator AI - Backend Setup Guide
+
+## 1. Prerequisites
+- Supabase account
+- OpenAI API account
+- Node.js >= 18.x installed
+
+## 2. Supabase Setup
+
+### 2.1 Project Creation
+1. Go to supabase.com and create an account
+2. Create a new project
+3. Note down:
+   - Project URL
+   - Anon public key
+   - Service role key (keep secure)
+
+### 2.2 Authentication Setup
+1. Navigate to Authentication > Providers
+2. Enable Email auth
+3. Enable Google auth:
+   - Create project in Google Cloud Console
+   - Configure OAuth consent screen
+   - Create OAuth 2.0 credentials
+   - Add authorized domains
+   - Add redirect URIs:
+     ```
+     https://[PROJECT_ID].supabase.co/auth/v1/callback
+     http://localhost:5173/auth/callback (for development)
+     ```
+
+### 2.3 Database Setup
+
+#### Create Tables
+```sql
+-- Users table
+CREATE TABLE users (
+  id UUID REFERENCES auth.users PRIMARY KEY,
+  email TEXT UNIQUE,
+  credits INTEGER DEFAULT 5,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),
+  last_login TIMESTAMP WITH TIME ZONE
+);
+
+-- Generations table
+CREATE TABLE generations (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  prompt TEXT NOT NULL,
+  style TEXT NOT NULL,
+  size TEXT NOT NULL,
+  model TEXT NOT NULL,
+  image_url TEXT NOT NULL,
+  credits_spent INTEGER NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
+);
+
+-- Credit management function
+CREATE OR REPLACE FUNCTION decrement_credits(user_id UUID, amount INTEGER)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  new_credits INTEGER;
+BEGIN
+  UPDATE users
+  SET credits = credits - amount
+  WHERE id = user_id
+  RETURNING credits INTO new_credits;
+  
+  RETURN new_credits;
+END;
+$$;
+```
+
+#### Set up Row Level Security (RLS)
+```sql
+-- Enable RLS
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE generations ENABLE ROW LEVEL SECURITY;
+
+-- User policies
+CREATE POLICY "Users can read own data"
+  ON users FOR SELECT
+  USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own credits"
+  ON users FOR UPDATE
+  USING (auth.uid() = id);
+
+-- Generation policies
+CREATE POLICY "Users can read own generations"
+  ON generations FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create generations"
+  ON generations FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+```
+
+#### Create Triggers
+```sql
+-- New user trigger
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.users (id, email, credits)
+  VALUES (new.id, new.email, 5);
+  RETURN new;
+END;
+$$;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+```
+
+## 3. OpenAI Setup
+1. Create account at openai.com
+2. Generate API key
+3. Set usage limits
+4. Configure billing
+
+## 4. Environment Configuration
+1. Create .env file in project root
+2. Add required variables:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   VITE_OPENAI_API_KEY=your_openai_api_key
+   ```
+
+## 5. Development Setup
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Start development server:
+   ```bash
+   npm run dev
+   ```
+
+## 6. Production Deployment
+1. Build the project:
+   ```bash
+   npm run build
+   ```
+2. Deploy to hosting service
+3. Set environment variables
+4. Configure custom domain if needed
+
+## 7. Monitoring & Maintenance
+
+### 7.1 Database Monitoring
+- Enable database webhooks
+- Monitor credit usage
+- Track generation patterns
+- Set up alerts for low credits
+
+### 7.2 Error Tracking
+- Monitor API responses
+- Track failed generations
+- Monitor authentication issues
+- Track credit deduction errors
+
+### 7.3 Backup Strategy
+- Enable point-in-time recovery
+- Regular database backups
+- Store generated images securely
+- Implement disaster recovery plan
+
+## 8. Security Checklist
+- [ ] Enable RLS on all tables
+- [ ] Secure API keys
+- [ ] Implement rate limiting
+- [ ] Set up CORS policies
+- [ ] Enable SSL/TLS
+- [ ] Regular security audits
+- [ ] Monitor for suspicious activity
+- [ ] Implement input validation
+
+## 9. Performance Optimization
+- [ ] Configure caching
+- [ ] Optimize database queries
+- [ ] Implement connection pooling
+- [ ] Set up CDN for images
+- [ ] Monitor response times
+- [ ] Optimize API calls

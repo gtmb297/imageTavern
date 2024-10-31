@@ -1,0 +1,104 @@
+# Icon Generator AI - Technical Requirements
+
+## Core Dependencies
+- Node.js >= 18.x
+- React 18.x with TypeScript
+- Vite (Build tool)
+- Supabase (Auth, Database, Storage)
+- OpenAI API (DALL-E 2 & 3)
+- TailwindCSS (Styling)
+- Lucide React (Icons)
+- React Router DOM (Routing)
+- React Hot Toast (Notifications)
+
+## Frontend Dependencies
+```json
+{
+  "@supabase/auth-ui-react": "^0.4.7",
+  "@supabase/auth-ui-shared": "^0.1.8",
+  "@supabase/supabase-js": "^2.39.7",
+  "lucide-react": "^0.344.0",
+  "openai": "^4.28.4",
+  "react": "^18.3.1",
+  "react-dom": "^18.3.1",
+  "react-hot-toast": "^2.4.1",
+  "react-router-dom": "^6.22.2"
+}
+```
+
+## Environment Variables
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_OPENAI_API_KEY=your_openai_api_key
+```
+
+## Features
+1. Authentication
+   - Email/Password login
+   - Google OAuth
+   - Protected routes
+   - Session management
+
+2. Icon Generation
+   - 8 distinct icon styles
+   - Multiple size options (256x256, 512x512, 1024x1024)
+   - DALL-E 2 & 3 support
+   - Custom prompts
+   - Real-time credit system
+
+3. Credit System
+   - Initial 5 free credits
+   - Variable costs based on model and size
+   - Premium features (1024x1024 size)
+
+4. User Interface
+   - Responsive design
+   - Dark theme
+   - Loading states
+   - Toast notifications
+   - Image preview
+   - Download capability
+
+## Database Schema
+
+### Users Table
+```sql
+CREATE TABLE users (
+  id UUID REFERENCES auth.users PRIMARY KEY,
+  email TEXT UNIQUE,
+  credits INTEGER DEFAULT 5,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),
+  last_login TIMESTAMP WITH TIME ZONE
+);
+```
+
+### Generations Table
+```sql
+CREATE TABLE generations (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  prompt TEXT NOT NULL,
+  style TEXT NOT NULL,
+  size TEXT NOT NULL,
+  model TEXT NOT NULL,
+  image_url TEXT NOT NULL,
+  credits_spent INTEGER NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW())
+);
+```
+
+## Security Requirements
+- Row Level Security (RLS) enabled
+- Secure environment variables
+- Protected API endpoints
+- Rate limiting
+- Input validation
+- Error handling
+
+## Performance Requirements
+- Lazy loading for routes
+- Optimized image loading
+- Efficient credit management
+- Responsive UI
+- Error boundary implementation
